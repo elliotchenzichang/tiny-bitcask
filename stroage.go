@@ -13,7 +13,7 @@ var (
 )
 
 const (
-	fileSuffix = "dat"
+	fileSuffix = ".dat"
 	B          = 1
 	KB         = 1024 * B
 	MB         = 1024 * KB
@@ -90,19 +90,25 @@ func (s *Storage) readEntry(fid int, off int64) (e *Entry, err error) {
 func (s *Storage) readAt(fid int, off int64, bytes []byte) (err error) {
 	if fd := s.fds[fid]; fd != nil {
 		n, err := fd.ReadAt(bytes, off)
+		if err != nil {
+			return err
+		}
 		if n < len(bytes) {
 			return readMissDataErr
 		}
-		return err
+		return nil
 	}
 	path := fmt.Sprintf("%s/%d", s.dir, fid)
 	fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
 	s.fds[fid] = fd
 	n, err := fd.ReadAt(bytes, off)
+	if err != nil {
+		return err
+	}
 	if n < len(bytes) {
 		return readMissDataErr
 	}
-	return err
+	return nil
 }
 
 func (s *Storage) writeAt(bytes []byte) (i *Index, err error) {
@@ -148,6 +154,6 @@ func (s *Storage) rotate() error {
 }
 
 func (s *Storage) getPath() string {
-	path := fmt.Sprintf("%s/%d.%s", s.dir, s.af.fid, fileSuffix)
+	path := fmt.Sprintf("%s/%d%s", s.dir, s.af.fid, fileSuffix)
 	return path
 }
