@@ -2,6 +2,7 @@ package tiny_bitcask
 
 import (
 	"io/ioutil"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -25,4 +26,15 @@ func getFids(dir string) (fids []int, err error) {
 		}
 	}
 	return fids, nil
+}
+
+func isDirExist(dir string) (bool, error) {
+	_, err := os.Stat(dir)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

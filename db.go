@@ -25,6 +25,12 @@ func NewDB(opt *Options) (db *DB, err error) {
 		rw: sync.RWMutex{},
 		kd: &keyDir{index: map[string]*Index{}},
 	}
+	if isExist, _ := isDirExist(opt.Dir); isExist {
+		if err := db.recovery(opt); err != nil {
+			return nil, err
+		}
+		return db, nil
+	}
 	var fileSize = getSegmentSize(opt.SegmentSize)
 	db.s, err = NewStorage(opt.Dir, fileSize)
 	if err != nil {
@@ -108,4 +114,55 @@ func (db *DB) Merge() error {
 		}
 	}
 	return nil
+}
+
+func (db *DB) recovery(opt *Options) (err error) {
+	var fileSize = getSegmentSize(opt.SegmentSize)
+	db.s = &Storage{
+		dir:      opt.Dir,
+		fileSize: fileSize,
+		fds:      map[int]*os.File{},
+	}
+	if err != nil {
+		return err
+	}
+	fids, err := getFids(opt.Dir)
+	if err != nil {
+		return err
+	}
+	sort.Ints(fids)
+	for _, fid := range fids {
+		var off int64 = 0
+		path := fmt.Sprintf("%s/%d%s", opt.Dir, fid, fileSuffix)
+		fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
+		if err != nil {
+			return err
+		}
+		db.s.fds[fid] = fd
+		for {
+			entry, err := db.s.readEntry(fid, off)
+			if err == nil {
+				db.kd.index[string(entry.key)] = &Index{
+					fid:       fid,
+					off:       off,
+					timestamp: entry.meta.timeStamp,
+				}
+				off += int64(entry.Size())
+			} else {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+		}
+		if fid == fids[len(fids)-1] {
+			af := &ActiveFile{
+				fid: fid,
+				f:   fd,
+				off: off,
+			}
+			db.s.af = af
+		}
+	}
+	return err
 }
