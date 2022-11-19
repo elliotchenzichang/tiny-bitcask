@@ -27,14 +27,15 @@ type Storage struct {
 	fds      map[int]*os.File
 }
 
-func NewStorage(dir string) (s *Storage, err error) {
+func NewStorage(dir string, size int64) (s *Storage, err error) {
 	err = os.Mkdir(dir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 	s = &Storage{
-		dir: dir,
-		fds: map[int]*os.File{},
+		dir:      dir,
+		fileSize: size,
+		fds:      map[int]*os.File{},
 	}
 	s.dir = dir
 	s.af = &ActiveFile{
@@ -114,7 +115,7 @@ func (s *Storage) writeAt(bytes []byte) (i *Index, err error) {
 		off: s.af.off,
 	}
 	s.af.off += int64(len(bytes))
-	if s.af.off > s.fileSize {
+	if s.af.off >= s.fileSize {
 		err := s.rotate()
 		if err != nil {
 			return nil, err

@@ -20,7 +20,8 @@ func NewDB(opt *Options) (db *DB, err error) {
 		rw: sync.RWMutex{},
 		kd: &keyDir{index: map[string]*Index{}},
 	}
-	db.s, err = NewStorage(opt.Dir)
+	var fileSize = getSegmentSize(opt.SegmentSize)
+	db.s, err = NewStorage(opt.Dir, fileSize)
 	if err != nil {
 		return nil, err
 	}
@@ -52,4 +53,14 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 		return nil, err
 	}
 	return entry.value, nil
+}
+
+func getSegmentSize(size int64) int64 {
+	var fileSize int64
+	if size <= 0 {
+		fileSize = 4 * KB
+	} else {
+		fileSize = size
+	}
+	return fileSize
 }
