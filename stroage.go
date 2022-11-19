@@ -32,20 +32,22 @@ func NewStorage(dir string) (s *Storage, err error) {
 	if err != nil {
 		return nil, err
 	}
+	s = &Storage{
+		dir: dir,
+		fds: map[int]*os.File{},
+	}
+	s.dir = dir
+	s.af = &ActiveFile{
+		fid: 0,
+		off: 0,
+	}
 	path := s.getPath()
 	fd, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
-	s = &Storage{
-		dir: dir,
-		af: &ActiveFile{
-			fid: 0,
-			f:   fd,
-			off: 0,
-		},
-		fds: map[int]*os.File{0: fd},
-	}
+	s.af.f = fd
+	s.fds[0] = fd
 	return s, nil
 }
 
