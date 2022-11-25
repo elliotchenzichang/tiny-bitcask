@@ -64,9 +64,6 @@ func (s *Storage) readEntry(fid int, off int64) (e *Entry, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
 	e = NewEntry()
 	e.DecodeMeta(buf)
 	off += MetaSize
@@ -81,6 +78,25 @@ func (s *Storage) readEntry(fid int, off int64) (e *Entry, err error) {
 		return nil, err
 	}
 	crc := e.getCrc(buf)
+	if e.meta.crc != crc {
+		return nil, crcErr
+	}
+	return e, nil
+}
+
+func (s *Storage) readFullEntry(fid int, off int64, buf []byte) (e *Entry, err error) {
+	err = s.readAt(fid, off, buf)
+	if err != nil {
+		return nil, err
+	}
+	e = NewEntry()
+	e.DecodeMeta(buf[0:MetaSize])
+	payloadSize := e.meta.keySize + e.meta.keySize
+	err = e.DecodePayload(buf[MetaSize : MetaSize+payloadSize])
+	if err != nil {
+		return nil, err
+	}
+	crc := e.getCrc(buf[:MetaSize])
 	if e.meta.crc != crc {
 		return nil, crcErr
 	}

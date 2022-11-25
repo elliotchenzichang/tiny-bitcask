@@ -48,6 +48,8 @@ func (db *DB) Set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
+	index.keySize = len(key)
+	index.valueSize = len(value)
 	db.kd.update(string(key), index)
 	return nil
 }
@@ -59,7 +61,9 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	if i == nil {
 		return nil, KeyNotFound
 	}
-	entry, err := db.s.readEntry(i.fid, i.off)
+	dataSize := MetaSize + i.keySize + i.valueSize
+	buf := make([]byte, dataSize)
+	entry, err := db.s.readFullEntry(i.fid, i.off, buf)
 	if err != nil {
 		return nil, err
 	}

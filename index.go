@@ -8,6 +8,8 @@ type Index struct {
 	fid       int
 	off       int64
 	timestamp uint64
+	keySize   int
+	valueSize int
 }
 
 func (kd *keyDir) find(key string) *Index {
