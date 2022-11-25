@@ -70,16 +70,6 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	return entry.value, nil
 }
 
-func getSegmentSize(size int64) int64 {
-	var fileSize int64
-	if size <= 0 {
-		fileSize = 4 * KB
-	} else {
-		fileSize = size
-	}
-	return fileSize
-}
-
 func (db *DB) Merge() error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
