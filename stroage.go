@@ -10,6 +10,7 @@ var (
 	readMissDataErr  = errors.New("miss data during read")
 	writeMissDataErr = errors.New("miss data during write")
 	crcErr           = errors.New("crc error")
+	deleteEntry      = errors.New("read an entry which had deleted")
 )
 
 const (
@@ -66,6 +67,9 @@ func (s *Storage) readEntry(fid int, off int64) (e *Entry, err error) {
 	}
 	e = NewEntry()
 	e.DecodeMeta(buf)
+	if e.meta.flag == DeleteFlag {
+		return nil, deleteEntry
+	}
 	off += MetaSize
 	payloadSize := e.meta.keySize + e.meta.valueSize
 	payload := make([]byte, payloadSize)

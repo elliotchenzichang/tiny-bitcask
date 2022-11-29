@@ -70,6 +70,23 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	return entry.value, nil
 }
 
+func (db *DB) Delete(key []byte) error {
+	db.rw.Lock()
+	defer db.rw.Unlock()
+	index := db.kd.find(string(key))
+	if index == nil {
+		return KeyNotFound
+	}
+	e := NewEntry()
+	e.meta.flag = DeleteFlag
+	_, err := db.s.writeAt(e.Encode())
+	if err != nil {
+		return err
+	}
+	delete(db.kd.index, string(key))
+	return nil
+}
+
 func (db *DB) Merge() error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
@@ -117,9 +134,6 @@ func (db *DB) recovery(opt *Options) (err error) {
 		fileSize: fileSize,
 		fds:      map[int]*os.File{},
 	}
-	if err != nil {
-		return err
-	}
 	fids, err := getFids(opt.Dir)
 	if err != nil {
 		return err
@@ -143,6 +157,9 @@ func (db *DB) recovery(opt *Options) (err error) {
 				}
 				off += int64(entry.Size())
 			} else {
+				if err == deleteEntry {
+					continue
+				}
 				if err == io.EOF {
 					break
 				}

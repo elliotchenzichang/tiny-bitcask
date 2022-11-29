@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	MetaSize = 28
+	MetaSize   = 29
+	DeleteFlag = 1
 )
 
 type Entry struct {
@@ -22,6 +23,7 @@ type Meta struct {
 	timeStamp uint64
 	keySize   uint32
 	valueSize uint32
+	flag      uint8
 }
 
 func NewEntryWithData(key []byte, value []byte) *Entry {
@@ -50,8 +52,11 @@ func (e *Entry) Encode() []byte {
 	binary.LittleEndian.PutUint64(buf[12:20], e.meta.timeStamp)
 	binary.LittleEndian.PutUint32(buf[20:24], e.meta.keySize)
 	binary.LittleEndian.PutUint32(buf[24:28], e.meta.valueSize)
-	copy(buf[MetaSize:MetaSize+len(e.key)], e.key)
-	copy(buf[MetaSize+len(e.key):MetaSize+len(e.key)+len(e.value)], e.value)
+	buf[28] = e.meta.flag
+	if e.meta.flag != DeleteFlag {
+		copy(buf[MetaSize:MetaSize+len(e.key)], e.key)
+		copy(buf[MetaSize+len(e.key):MetaSize+len(e.key)+len(e.value)], e.value)
+	}
 	c32 := crc32.ChecksumIEEE(buf[4:])
 	binary.LittleEndian.PutUint32(buf[0:4], c32)
 	return buf
