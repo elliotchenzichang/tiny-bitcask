@@ -2,35 +2,26 @@ package tiny_bitcask
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestDB_Base(t *testing.T) {
 	opt := &Options{Dir: "db"}
 	db, err := NewDB(opt)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 	err = db.Set([]byte("test_key"), []byte("test_value"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 	value, err := db.Get([]byte("test_key"))
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value", string(value))
 
 	err = db.Set([]byte("test_key"), []byte("test_value_2"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 
 	value, err = db.Get([]byte("test_key"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(value))
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value_2", string(value))
 }
 
 func TestDB_SegmentSize(t *testing.T) {
@@ -39,18 +30,13 @@ func TestDB_SegmentSize(t *testing.T) {
 		SegmentSize: 4 * KB,
 	}
 	db, err := NewDB(opt)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
 	for i := 0; i < 1000; i++ {
 		key := fmt.Sprintf("test_key_%d", i)
 		value := fmt.Sprintf("test_value_%d", i)
 		err = db.Set([]byte(key), []byte(value))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		assert.NoError(t, err)
 	}
 }
 
@@ -61,67 +47,38 @@ func TestDB_Merge(t *testing.T) {
 		SegmentSize: 4 * KB,
 	}
 	db, err := NewDB(opt)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
 	key := "test_key"
 	for i := 0; i < 1000; i++ {
 		value := fmt.Sprintf("test_value_%d", i)
 		err = db.Set([]byte(key), []byte(value))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		assert.NoError(t, err)
 	}
-	fmt.Println(len(db.kd.index))
-	fmt.Println(db.kd.index[key].fid, "  ", db.kd.index[key].off)
 	err = db.Merge()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 
 	value, err := db.Get([]byte("test_key"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(value))
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value_999", string(value))
 }
 
 func TestDB_Delete(t *testing.T) {
 	opt := &Options{Dir: "db"}
 	db, err := NewDB(opt)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 	err = db.Set([]byte("test_key"), []byte("test_value"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 	value, err := db.Get([]byte("test_key"))
 
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(string(value))
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value", string(value))
 
 	err = db.Delete([]byte("test_key"))
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	assert.NoError(t, err)
 
 	value, err = db.Get([]byte("test_key"))
-
-	if err != KeyNotFound {
-		fmt.Println("key still here")
-		return
-	}
+	assert.Nil(t, value)
+	assert.ErrorAs(t, KeyNotFound, err)
 
 }
