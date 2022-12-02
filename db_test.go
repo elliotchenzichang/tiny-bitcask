@@ -86,11 +86,12 @@ func TestDB_Delete(t *testing.T) {
 func TestDB_Delete_Merge(t *testing.T) {
 	opt := &Options{Dir: "db"}
 	db, err := NewDB(opt)
-	assert.NoError(t, err)
-	db.Set([]byte("test_key"), []byte("test_value"))
-	db.Set([]byte("test_key"), []byte("test_value_2"))
-	db.Set([]byte("test_key_1"), []byte("test_value_1"))
-
+	key := "test_key"
+	for i := 0; i < 1000; i++ {
+		value := fmt.Sprintf("test_value_%d", i)
+		err = db.Set([]byte(key), []byte(value))
+		assert.NoError(t, err)
+	}
 	err = db.Delete([]byte("test_key"))
 
 	db.Merge()

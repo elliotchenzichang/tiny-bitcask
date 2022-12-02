@@ -105,6 +105,9 @@ func (db *DB) Merge() error {
 			if err == nil {
 				off += int64(entry.Size())
 				oldIndex := db.kd.index[string(entry.key)]
+				if oldIndex == nil {
+					continue
+				}
 				if oldIndex.fid == fid && oldIndex.off == off {
 					newIndex, err := db.s.writeAt(entry.Encode())
 					if err != nil {
