@@ -82,3 +82,20 @@ func TestDB_Delete(t *testing.T) {
 	assert.ErrorAs(t, KeyNotFound, err)
 
 }
+
+func TestDB_Delete_Merge(t *testing.T) {
+	opt := &Options{Dir: "db"}
+	db, err := NewDB(opt)
+	assert.NoError(t, err)
+	db.Set([]byte("test_key"), []byte("test_value"))
+	db.Set([]byte("test_key"), []byte("test_value_2"))
+	db.Set([]byte("test_key_1"), []byte("test_value_1"))
+
+	err = db.Delete([]byte("test_key"))
+
+	db.Merge()
+
+	value, err := db.Get([]byte("test_key"))
+	assert.Nil(t, value)
+	assert.Equal(t, KeyNotFound, err)
+}
