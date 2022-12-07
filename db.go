@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	KeyNotFound   = errors.New("key not found")
-	NoNeedToMerge = errors.New("no need to merge")
+	KeyNotFoundErr   = errors.New("key not found")
+	NoNeedToMergeErr = errors.New("no need to merge")
 )
 
 type DB struct {
@@ -59,7 +59,7 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	defer db.rw.RUnlock()
 	i := db.kd.find(string(key))
 	if i == nil {
-		return nil, KeyNotFound
+		return nil, KeyNotFoundErr
 	}
 	dataSize := MetaSize + i.keySize + i.valueSize
 	buf := make([]byte, dataSize)
@@ -75,7 +75,7 @@ func (db *DB) Delete(key []byte) error {
 	defer db.rw.Unlock()
 	index := db.kd.find(string(key))
 	if index == nil {
-		return KeyNotFound
+		return KeyNotFoundErr
 	}
 	e := NewEntry()
 	e.meta.flag = DeleteFlag
@@ -95,7 +95,7 @@ func (db *DB) Merge() error {
 		return err
 	}
 	if len(fids) < 2 {
-		return NoNeedToMerge
+		return NoNeedToMergeErr
 	}
 	sort.Ints(fids)
 	for _, fid := range fids[:len(fids)-1] {
@@ -160,7 +160,7 @@ func (db *DB) recovery(opt *Options) (err error) {
 				}
 				off += int64(entry.Size())
 			} else {
-				if err == deleteEntry {
+				if err == deleteEntryErr {
 					continue
 				}
 				if err == io.EOF {
