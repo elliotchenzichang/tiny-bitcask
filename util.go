@@ -42,7 +42,7 @@ func isDirExist(dir string) (bool, error) {
 func getSegmentSize(size int64) int64 {
 	var fileSize int64
 	if size <= 0 {
-		fileSize = 4 * KB
+		fileSize = DefaultSegmentSize
 	} else {
 		fileSize = size
 	}
