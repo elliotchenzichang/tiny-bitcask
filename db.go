@@ -7,6 +7,8 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"tiny-bitcask/entity"
+	"tiny-bitcask/storage"
 )
 
 var (
@@ -17,7 +19,7 @@ var (
 type DB struct {
 	rw sync.RWMutex
 	kd *keyDir
-	s  *Storage
+	s  *storage.DataFile
 }
 
 func NewDB(opt *Options) (db *DB, err error) {
@@ -32,7 +34,7 @@ func NewDB(opt *Options) (db *DB, err error) {
 		return db, nil
 	}
 	var fileSize = getSegmentSize(opt.SegmentSize)
-	db.s, err = NewStorage(opt.Dir, fileSize)
+	db.s, err = storage.NewDataFile(opt.Dir, fileSize)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +44,18 @@ func NewDB(opt *Options) (db *DB, err error) {
 func (db *DB) Set(key []byte, value []byte) error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
-	entry := NewEntryWithData(key, value)
+	entry := entity.NewEntryWithData(key, value)
 	buf := entry.Encode()
-	index, err := db.s.writeAt(buf)
+	fid, off, err := db.s.WriteAt(buf)
 	if err != nil {
 		return err
 	}
-	index.keySize = len(key)
-	index.valueSize = len(value)
+	index := &Index{
+		Fid:       fid,
+		Off:       off,
+		keySize:   len(key),
+		valueSize: len(value),
+	}
 	db.kd.update(string(key), index)
 	return nil
 }
@@ -61,13 +67,13 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	if i == nil {
 		return nil, KeyNotFoundErr
 	}
-	dataSize := MetaSize + i.keySize + i.valueSize
+	dataSize := entity.MetaSize + i.keySize + i.valueSize
 	buf := make([]byte, dataSize)
-	entry, err := db.s.readFullEntry(i.fid, i.off, buf)
+	entry, err := db.s.ReadFullEntry(i.Fid, i.Off, buf)
 	if err != nil {
 		return nil, err
 	}
-	return entry.value, nil
+	return entry.Value, nil
 }
 
 func (db *DB) Delete(key []byte) error {
@@ -77,9 +83,9 @@ func (db *DB) Delete(key []byte) error {
 	if index == nil {
 		return KeyNotFoundErr
 	}
-	e := NewEntry()
-	e.meta.flag = DeleteFlag
-	_, err := db.s.writeAt(e.Encode())
+	e := entity.NewEntry()
+	e.Meta.Flag = entity.DeleteFlag
+	_, _, err := db.s.WriteAt(e.Encode())
 	if err != nil {
 		return err
 	}
@@ -90,7 +96,7 @@ func (db *DB) Delete(key []byte) error {
 func (db *DB) Merge() error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
-	fids, err := getFids(db.s.dir)
+	fids, err := getFids(db.s.Dir)
 	if err != nil {
 		return err
 	}
@@ -101,19 +107,23 @@ func (db *DB) Merge() error {
 	for _, fid := range fids[:len(fids)-1] {
 		var off int64 = 0
 		for {
-			entry, err := db.s.readEntry(fid, off)
+			entry, err := db.s.ReadEntry(fid, off)
 			if err == nil {
 				off += int64(entry.Size())
-				oldIndex := db.kd.index[string(entry.key)]
+				oldIndex := db.kd.index[string(entry.Key)]
 				if oldIndex == nil {
 					continue
 				}
-				if oldIndex.fid == fid && oldIndex.off == off {
-					newIndex, err := db.s.writeAt(entry.Encode())
+				if oldIndex.Fid == fid && oldIndex.Off == off {
+					fid, off, err := db.s.WriteAt(entry.Encode())
+					newIndex := &Index{
+						Fid: fid,
+						Off: off,
+					}
 					if err != nil {
 						return err
 					}
-					db.kd.index[string(entry.key)] = newIndex
+					db.kd.index[string(entry.Key)] = newIndex
 				}
 			} else {
 				if err == io.EOF {
@@ -122,7 +132,7 @@ func (db *DB) Merge() error {
 				return err
 			}
 		}
-		err = os.Remove(fmt.Sprintf("%s/%d%s", db.s.dir, fid, fileSuffix))
+		err = os.Remove(fmt.Sprintf("%s/%d%s", db.s.Dir, fid, storage.FileSuffix))
 		if err != nil {
 			return err
 		}
@@ -132,10 +142,10 @@ func (db *DB) Merge() error {
 
 func (db *DB) recovery(opt *Options) (err error) {
 	var fileSize = getSegmentSize(opt.SegmentSize)
-	db.s = &Storage{
-		dir:      opt.Dir,
-		fileSize: fileSize,
-		fds:      map[int]*os.File{},
+	db.s = &storage.DataFile{
+		Dir:      opt.Dir,
+		FileSize: fileSize,
+		Fds:      map[int]*os.File{},
 	}
 	fids, err := getFids(opt.Dir)
 	if err != nil {
@@ -144,23 +154,23 @@ func (db *DB) recovery(opt *Options) (err error) {
 	sort.Ints(fids)
 	for _, fid := range fids {
 		var off int64 = 0
-		path := fmt.Sprintf("%s/%d%s", opt.Dir, fid, fileSuffix)
+		path := fmt.Sprintf("%s/%d%s", opt.Dir, fid, storage.FileSuffix)
 		fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
 		if err != nil {
 			return err
 		}
-		db.s.fds[fid] = fd
+		db.s.Fds[fid] = fd
 		for {
-			entry, err := db.s.readEntry(fid, off)
+			entry, err := db.s.ReadEntry(fid, off)
 			if err == nil {
-				db.kd.index[string(entry.key)] = &Index{
-					fid:       fid,
-					off:       off,
-					timestamp: entry.meta.timeStamp,
+				db.kd.index[string(entry.Key)] = &Index{
+					Fid:       fid,
+					Off:       off,
+					timestamp: entry.Meta.TimeStamp,
 				}
 				off += int64(entry.Size())
 			} else {
-				if err == deleteEntryErr {
+				if err == storage.DeleteEntryErr {
 					continue
 				}
 				if err == io.EOF {
@@ -170,12 +180,12 @@ func (db *DB) recovery(opt *Options) (err error) {
 			}
 		}
 		if fid == fids[len(fids)-1] {
-			af := &ActiveFile{
-				fid: fid,
-				f:   fd,
-				off: off,
+			af := &storage.ActiveFile{
+				Fid: fid,
+				F:   fd,
+				Off: off,
 			}
-			db.s.af = af
+			db.s.Af = af
 		}
 	}
 	return err

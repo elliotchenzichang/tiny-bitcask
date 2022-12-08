@@ -5,8 +5,8 @@ type keyDir struct {
 }
 
 type Index struct {
-	fid       int
-	off       int64
+	Fid       int
+	Off       int64
 	timestamp uint64
 	keySize   int
 	valueSize int

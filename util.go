@@ -6,6 +6,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"tiny-bitcask/storage"
 )
 
 func getFids(dir string) (fids []int, err error) {
@@ -16,8 +17,8 @@ func getFids(dir string) (fids []int, err error) {
 	for _, f := range files {
 		fileName := f.Name()
 		filePath := path.Base(fileName)
-		if path.Ext(filePath) == fileSuffix {
-			filePrefix := strings.TrimSuffix(filePath, fileSuffix)
+		if path.Ext(filePath) == storage.FileSuffix {
+			filePrefix := strings.TrimSuffix(filePath, storage.FileSuffix)
 			fid, err := strconv.Atoi(filePrefix)
 			if err != nil {
 				return nil, err
