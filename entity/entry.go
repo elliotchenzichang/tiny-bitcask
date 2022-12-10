@@ -11,6 +11,11 @@ const (
 	DeleteFlag = 1
 )
 
+type Hint struct {
+	Fid int
+	Off int64
+}
+
 type Entry struct {
 	Key   []byte
 	Value []byte
@@ -62,12 +67,11 @@ func (e *Entry) Encode() []byte {
 	return buf
 }
 
-func (e *Entry) DecodePayload(payload []byte) error {
+func (e *Entry) DecodePayload(payload []byte) {
 	keyHighBound := int(e.Meta.KeySize)
 	valueHighBound := keyHighBound + int(e.Meta.ValueSize)
 	e.Key = payload[0:keyHighBound]
 	e.Value = payload[keyHighBound:valueHighBound]
-	return nil
 }
 
 func (e *Entry) DecodeMeta(bytes []byte) {
@@ -78,8 +82,8 @@ func (e *Entry) DecodeMeta(bytes []byte) {
 	e.Meta.ValueSize = binary.LittleEndian.Uint32(bytes[24:28])
 }
 
-func (e *Entry) Size() int {
-	return int(MetaSize + e.Meta.KeySize + e.Meta.ValueSize)
+func (e *Entry) Size() int64 {
+	return int64(MetaSize + e.Meta.KeySize + e.Meta.ValueSize)
 }
 
 func (e *Entry) GetCrc(buf []byte) uint32 {
