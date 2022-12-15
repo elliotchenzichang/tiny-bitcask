@@ -21,6 +21,7 @@ type DB struct {
 	storage *storage.DataFiles
 }
 
+// NewDB create a new DB instance with Options
 func NewDB(opt *Options) (db *DB, err error) {
 	db = &DB{
 		rw: sync.RWMutex{},
@@ -40,6 +41,7 @@ func NewDB(opt *Options) (db *DB, err error) {
 	return db, err
 }
 
+// Set sets a key-value pairs into DB
 func (db *DB) Set(key []byte, value []byte) error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
@@ -58,6 +60,7 @@ func (db *DB) Set(key []byte, value []byte) error {
 	return nil
 }
 
+// Get gets value by using key
 func (db *DB) Get(key []byte) (value []byte, err error) {
 	db.rw.RLock()
 	defer db.rw.RUnlock()
@@ -72,6 +75,7 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 	return entry.Value, nil
 }
 
+// Delete delete a key
 func (db *DB) Delete(key []byte) error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
@@ -89,6 +93,7 @@ func (db *DB) Delete(key []byte) error {
 	return nil
 }
 
+// Merge clean the useless data
 func (db *DB) Merge() error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
@@ -134,6 +139,7 @@ func (db *DB) Merge() error {
 	return nil
 }
 
+// recovery  will rebuild a db from existing dir
 func (db *DB) recovery(opt *Options) (err error) {
 	var fileSize = getSegmentSize(opt.SegmentSize)
 	db.storage, err = storage.NewDataFileWithFiles(opt.Dir, fileSize)
