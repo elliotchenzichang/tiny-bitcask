@@ -19,14 +19,14 @@ type DB struct {
 	rw      sync.RWMutex
 	kd      *index.KeyDir
 	storage *storage.DataFiles
+	opt     *Options
 }
 
 // NewDB create a new DB instance with Options
 func NewDB(opt *Options) (db *DB, err error) {
-	db = &DB{
-		rw: sync.RWMutex{},
-		kd: &index.KeyDir{Index: map[string]*index.Index{}},
-	}
+	db = &DB{}
+	db.kd = index.NewKD()
+	db.opt = opt
 	if isExist, _ := isDirExist(opt.Dir); isExist {
 		if err := db.recovery(opt); err != nil {
 			return nil, err
@@ -108,21 +108,19 @@ func (db *DB) Merge() error {
 		for {
 			entry, err := reader.ReadEntityWithOutLength(off)
 			if err == nil {
-				off += int64(entry.Size())
-				oldIndex := db.kd.Index[string(entry.Key)]
+				key := string(entry.Key)
+				off += entry.Size()
+				oldIndex := db.kd.Find(key)
 				if oldIndex == nil {
 					continue
 				}
-				if oldIndex.Fid == fid && oldIndex.Off == off {
+				if oldIndex.IsEqualPos(fid, off) {
 					h, err := db.storage.WriterEntity(entry)
-					newIndex := &index.Index{
-						Fid: h.Fid,
-						Off: h.Off,
-					}
 					if err != nil {
 						return err
 					}
-					db.kd.Index[string(entry.Key)] = newIndex
+					newIndex := index.NewIndexByHint(h)
+					db.kd.Update(key, newIndex)
 				}
 			} else {
 				if err == io.EOF {
@@ -147,9 +145,6 @@ func (db *DB) recovery(opt *Options) (err error) {
 		return err
 	}
 	fids := db.storage.GetOldFiles()
-	if err != nil {
-		return err
-	}
 	sort.Ints(fids)
 	for _, fid := range fids {
 		var off int64 = 0
@@ -162,7 +157,7 @@ func (db *DB) recovery(opt *Options) (err error) {
 					Off:       off,
 					Timestamp: entry.Meta.TimeStamp,
 				}
-				off += int64(entry.Size())
+				off += entry.Size()
 			} else {
 				if err == storage.DeleteEntryErr {
 					continue
