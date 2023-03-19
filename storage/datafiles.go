@@ -163,13 +163,17 @@ func (dfs *DataFiles) WriterEntity(e entity.Entity) (h *entity.Hint, err error) 
 	if err != nil {
 		return nil, err
 	}
-	if dfs.active.off > dfs.segmentSize {
+	if dfs.canRotate() {
 		err := dfs.rotate()
 		if err != nil {
 			return nil, err
 		}
 	}
 	return h, nil
+}
+
+func (dfs *DataFiles) canRotate() bool {
+	return dfs.active.off > dfs.segmentSize
 }
 
 type ActiveFile struct {

@@ -50,12 +50,7 @@ func (db *DB) Set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	index := &index.Index{
-		Fid:       h.Fid,
-		Off:       h.Off,
-		KeySize:   len(key),
-		ValueSize: len(value),
-	}
+	index := index.NewIndex(h.Fid, h.Off, len(key), len(value))
 	db.kd.Update(string(key), index)
 	return nil
 }
@@ -79,7 +74,8 @@ func (db *DB) Get(key []byte) (value []byte, err error) {
 func (db *DB) Delete(key []byte) error {
 	db.rw.Lock()
 	defer db.rw.Unlock()
-	index := db.kd.Find(string(key))
+	keyStr := string(key)
+	index := db.kd.Find(keyStr)
 	if index == nil {
 		return KeyNotFoundErr
 	}
@@ -89,7 +85,7 @@ func (db *DB) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	delete(db.kd.Index, string(key))
+	db.kd.Delete(keyStr)
 	return nil
 }
 
@@ -119,7 +115,7 @@ func (db *DB) Merge() error {
 					if err != nil {
 						return err
 					}
-					newIndex := index.NewIndexByHint(h)
+					newIndex := index.NewIndexByData(h, entry)
 					db.kd.Update(key, newIndex)
 				}
 			} else {
@@ -155,6 +151,8 @@ func (db *DB) recovery(opt *Options) (err error) {
 				db.kd.Index[string(entry.Key)] = &index.Index{
 					Fid:       fid,
 					Off:       off,
+					KeySize:   len(entry.Key),
+					ValueSize: len(entry.Value),
 					Timestamp: entry.Meta.TimeStamp,
 				}
 				off += entry.Size()
