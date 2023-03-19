@@ -1,6 +1,6 @@
 ## tiny-bitcask
 
-tiny-bitcask是对[bitcask论文](https://riak.com/assets/bitcask-intro.pdf)的简单实现，旨在提供一种用Go实现一个简单kv存储引擎的参考。后来我想把这个项目作为实现我各种想法的试验田。所以本人也会持续迭代这个项目。如果想看简单版本的实现可以通过以下方式拉取代码，并且切换到demo分支。
+tiny-bitcask是对[bitcask论文](https://riak.com/assets/bitcask-intro.pdf)的简单实现，旨在提供用Go实现简单kv存储引擎的参考。后来我想把这个项目作为实现我各种想法的试验田。所以会持续迭代这个项目，迭代的结果就是master分支。如果想看简单版本的实现可以通过以下方式拉取代码，并且切换到demo分支。
 
 ````shell
 git clone git@github.com:elliotchenzichang/tiny-bitcask.git
