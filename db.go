@@ -50,8 +50,7 @@ func (db *DB) Set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	index := index.NewIndex(h.Fid, h.Off, len(key), len(value))
-	db.kd.Update(string(key), index)
+	db.kd.AddIndexByData(h, entry)
 	return nil
 }
 
@@ -115,8 +114,7 @@ func (db *DB) Merge() error {
 					if err != nil {
 						return err
 					}
-					newIndex := index.NewIndexByData(h, entry)
-					db.kd.Update(key, newIndex)
+					db.kd.AddIndexByData(h, entry)
 				}
 			} else {
 				if err == io.EOF {
@@ -148,13 +146,7 @@ func (db *DB) recovery(opt *Options) (err error) {
 		for {
 			entry, err := reader.ReadEntityWithOutLength(off)
 			if err == nil {
-				db.kd.Index[string(entry.Key)] = &index.Index{
-					Fid:       fid,
-					Off:       off,
-					KeySize:   len(entry.Key),
-					ValueSize: len(entry.Value),
-					Timestamp: entry.Meta.TimeStamp,
-				}
+				db.kd.AddIndexByRawInfo(fid, off, entry.Key, entry.Value)
 				off += entry.Size()
 			} else {
 				if err == storage.DeleteEntryErr {

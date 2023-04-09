@@ -2,25 +2,46 @@ package index
 
 import "tiny-bitcask/entity"
 
+const (
+	KeyNotFound = "key not found"
+)
+
+type Index interface {
+	Find(key string) *DataPosition
+	Delete(key string)
+	Update(key string, dp *DataPosition)
+	Add(key string, dp *DataPosition)
+}
+
+type indexer map[string]*DataPosition
+
+func newIndexer() indexer {
+	return indexer{}
+}
+
 type KeyDir struct {
-	Index map[string]*Index
+	Index indexer
 }
 
 func NewKD() *KeyDir {
 	kd := &KeyDir{}
-	kd.Index = map[string]*Index{}
+	kd.Index = newIndexer()
 	return kd
 }
 
+func (kd *KeyDir) Add(key string, dp *DataPosition) {
+	kd.Index[key] = dp
+}
+
 // Find searches an index in KeyDir
-func (kd *KeyDir) Find(key string) *Index {
-	i := kd.Index[key]
-	return i
+func (kd *KeyDir) Find(key string) *DataPosition {
+	dp := kd.Index[key]
+	return dp
 }
 
 // Update inserts an index to KeyDir
-func (kd *KeyDir) Update(key string, i *Index) {
-	kd.Index[key] = i
+func (kd *KeyDir) Update(key string, dp *DataPosition) {
+	kd.Index[key] = dp
 }
 
 // Delete deletes an index in KeyDir
@@ -28,8 +49,8 @@ func (kd *KeyDir) Delete(key string) {
 	delete(kd.Index, key)
 }
 
-// Index means a certain position of an entity.Entry which stores in disk.
-type Index struct {
+// DataPosition means a certain position of an entity.Entry which stores in disk.
+type DataPosition struct {
 	Fid       int
 	Off       int64
 	Timestamp uint64
@@ -37,20 +58,24 @@ type Index struct {
 	ValueSize int
 }
 
-// NewIndexByData create an Index via entity.Hint and entity.Entry
-func NewIndexByData(hint *entity.Hint, entry *entity.Entry) *Index {
-	return NewIndex(hint.Fid, hint.Off, len(entry.Key), len(entry.Value))
+func (kd *KeyDir) AddIndexByData(hint *entity.Hint, entry *entity.Entry) {
+	kd.AddIndexByRawInfo(hint.Fid, hint.Off, entry.Key, entry.Value)
 }
 
-func NewIndex(fid int, off int64, keySize int, valueSize int) *Index {
-	index := &Index{}
-	index.Fid = fid
-	index.Off = off
-	index.KeySize = keySize
-	index.ValueSize = valueSize
-	return index
+func (kd *KeyDir) AddIndexByRawInfo(fid int, off int64, key, value []byte) {
+	index := newDataPosition(fid, off, key, value)
+	kd.Add(string(key), index)
 }
 
-func (i *Index) IsEqualPos(fid int, off int64) bool {
+func newDataPosition(fid int, off int64, key, value []byte) *DataPosition {
+	dp := &DataPosition{}
+	dp.Fid = fid
+	dp.Off = off
+	dp.KeySize = len(key)
+	dp.ValueSize = len(value)
+	return dp
+}
+
+func (i *DataPosition) IsEqualPos(fid int, off int64) bool {
 	return i.Off == off && i.Fid == fid
 }

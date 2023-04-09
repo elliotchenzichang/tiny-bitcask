@@ -3,6 +3,7 @@ package tiny_bitcask
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"tiny-bitcask/storage"
 )
@@ -14,6 +15,7 @@ func BitCaskTest(t *testing.T, opt *Options, test func(db *DB)) {
 	db, err := NewDB(opt)
 	assert.NoError(t, err)
 	test(db)
+	os.RemoveAll(opt.Dir)
 }
 
 func TestDB_Base(t *testing.T) {

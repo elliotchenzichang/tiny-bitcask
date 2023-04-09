@@ -28,6 +28,12 @@ const (
 	GB         = 1024 * MB
 )
 
+type oldFiles map[int]*OldFile
+
+func newOldFiles() oldFiles {
+	return oldFiles{}
+}
+
 type DataFiles struct {
 	dir         string
 	oIds        []int
@@ -59,7 +65,7 @@ func (dfs *DataFiles) AddReader(fid int) error {
 func NewDataFileWithFiles(dir string, segmentSize int64) (dfs *DataFiles, err error) {
 	dfs = &DataFiles{
 		dir:         dir,
-		olds:        map[int]*OldFile{},
+		olds:        newOldFiles(),
 		segmentSize: segmentSize,
 	}
 
@@ -127,7 +133,7 @@ func (dfs *DataFiles) rotate() error {
 	return nil
 }
 
-func (dfs *DataFiles) ReadEntry(index *index.Index) (e *entity.Entry, err error) {
+func (dfs *DataFiles) ReadEntry(index *index.DataPosition) (e *entity.Entry, err error) {
 	dataSize := entity.MetaSize + index.KeySize + index.ValueSize
 	if index.Fid == dfs.active.fid {
 		return dfs.active.ReadEntity(index.Off, dataSize)
