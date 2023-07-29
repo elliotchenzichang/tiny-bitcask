@@ -32,21 +32,9 @@ type Meta struct {
 }
 
 func NewEntryWithData(key []byte, value []byte) *Entry {
-	e := &Entry{}
-	e.Key = key
-	e.Value = value
-	e.Meta = &Meta{
-		TimeStamp: uint64(time.Now().Unix()),
-		KeySize:   uint32(len(key)),
-		ValueSize: uint32(len(value)),
-	}
-	return e
-}
-
-func NewEntry() *Entry {
-	e := &Entry{
-		Meta: &Meta{},
-	}
+	now := uint64(time.Now().Unix())
+	meta := NewMeta().WithTimeStamp(now).WithKeySize(uint32(len(key))).WithValueSize(uint32(len(value)))
+	e := NewEntry().WithKey(key).WithValue(value).WithMeta(meta)
 	return e
 }
 
@@ -91,4 +79,66 @@ func (e *Entry) GetCrc(buf []byte) uint32 {
 	crc = crc32.Update(crc, crc32.IEEETable, e.Key)
 	crc = crc32.Update(crc, crc32.IEEETable, e.Value)
 	return crc
+}
+
+func NewEntry() *Entry {
+	return new(Entry)
+}
+
+func (e *Entry) WithKey(key []byte) *Entry {
+	e.Key = key
+	return e
+}
+
+func (e *Entry) WithValue(value []byte) *Entry {
+	e.Value = value
+	return e
+}
+
+func (e *Entry) WithMeta(meta *Meta) *Entry {
+	e.Meta = meta
+	return e
+}
+
+func NewMeta() *Meta {
+	return new(Meta)
+}
+
+func (m *Meta) WithPosition(pos uint64) *Meta {
+	m.position = pos
+	return m
+}
+
+func (m *Meta) WithTimeStamp(timestamp uint64) *Meta {
+	m.TimeStamp = timestamp
+	return m
+}
+
+func (m *Meta) WithKeySize(keySize uint32) *Meta {
+	m.KeySize = keySize
+	return m
+}
+
+func (m *Meta) WithValueSize(valueSize uint32) *Meta {
+	m.ValueSize = valueSize
+	return m
+}
+
+func (m *Meta) WithFlag(flag uint8) *Meta {
+	m.Flag = flag
+	return m
+}
+
+func NewHint() *Hint {
+	return new(Hint)
+}
+
+func (h *Hint) WithFid(fid int) *Hint {
+	h.Fid = fid
+	return h
+}
+
+func (h *Hint) WithOff(off int64) *Hint {
+	h.Off = off
+	return h
 }

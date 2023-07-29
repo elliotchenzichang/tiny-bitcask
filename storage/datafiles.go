@@ -215,7 +215,7 @@ func (af *ActiveFile) WriterEntity(e entity.Entity) (h *entity.Hint, err error) 
 	if err != nil {
 		return nil, err
 	}
-	h = &entity.Hint{Fid: af.fid, Off: af.off}
+	h = entity.NewHint().WithFid(af.fid).WithOff(af.off)
 	af.off += e.Size()
 	return h, nil
 }
@@ -242,7 +242,7 @@ func (of *OldFile) ReadEntity(off int64, length int) (e *entity.Entry, err error
 }
 
 func (of *OldFile) ReadEntityWithOutLength(off int64) (e *entity.Entry, err error) {
-	e = &entity.Entry{Meta: &entity.Meta{}}
+	e = entity.NewEntry().WithMeta(entity.NewMeta())
 	buf := make([]byte, entity.MetaSize)
 	n, err := of.fd.ReadAt(buf, off)
 	if err != nil {
