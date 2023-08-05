@@ -11,7 +11,10 @@ import (
 )
 
 var (
-	KeyNotFoundErr   = errors.New("key not found")
+	// KeyNotFoundErr means the key user look for is not in database.
+	KeyNotFoundErr = errors.New("key not found")
+
+	// NoNeedToMergeErr means the database don't need to merge for now.
 	NoNeedToMergeErr = errors.New("no need to merge")
 )
 
@@ -149,7 +152,7 @@ func (db *DB) recovery(opt *Options) (err error) {
 				db.kd.AddIndexByRawInfo(fid, off, entry.Key, entry.Value)
 				off += entry.Size()
 			} else {
-				if err == storage.DeleteEntryErr {
+				if errors.Is(err, storage.DeleteEntryErr) {
 					continue
 				}
 				if err == io.EOF {
