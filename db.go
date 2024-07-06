@@ -160,7 +160,7 @@ func (db *DB) recovery(opt *Options) (err error) {
 				}
 				off += int64(entry.Size())
 			} else {
-				if err == deleteEntryErr {
+				if errors.Is(err, deleteEntryErr) {
 					continue
 				}
 				if err == io.EOF {

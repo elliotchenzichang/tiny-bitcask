@@ -118,7 +118,7 @@ func (s *Storage) readAt(fid int, off int64, bytes []byte) (err error) {
 		}
 		return nil
 	}
-	path := fmt.Sprintf("%s/%d", s.dir, fid)
+	path := fmt.Sprintf("%s/%d.dat", s.dir, fid)
 	fd, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
 	s.fds[fid] = fd
 	n, err := fd.ReadAt(bytes, off)
