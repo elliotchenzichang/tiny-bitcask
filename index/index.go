@@ -1,6 +1,10 @@
 package index
 
-import "tiny-bitcask/entity"
+import (
+	"sort"
+
+	"tiny-bitcask/entity"
+)
 
 const (
 	KeyNotFound = "key not found"
@@ -59,18 +63,50 @@ type DataPosition struct {
 }
 
 func (kd *KeyDir) AddIndexByData(hint *entity.Hint, entry *entity.Entry) {
-	kd.AddIndexByRawInfo(hint.Fid, hint.Off, entry.Key, entry.Value)
+	kd.AddIndexByRawInfo(hint.Fid, hint.Off, entry.Key, entry.Value, entry.Meta.TimeStamp)
 }
 
-func (kd *KeyDir) AddIndexByRawInfo(fid int, off int64, key, value []byte) {
-	index := newDataPosition(fid, off, key, value)
+func (kd *KeyDir) AddIndexByRawInfo(fid int, off int64, key, value []byte, ts uint64) {
+	index := newDataPosition(fid, off, key, value, ts)
 	kd.Add(string(key), index)
 }
 
-func newDataPosition(fid int, off int64, key, value []byte) *DataPosition {
+// Range visits every key in arbitrary map order until fn returns false.
+func (kd *KeyDir) Range(fn func(key string, dp *DataPosition) bool) {
+	for k, dp := range kd.Index {
+		if !fn(k, dp) {
+			break
+		}
+	}
+}
+
+// SortedKeys returns keys in lexicographic order (copy).
+func (kd *KeyDir) SortedKeys() []string {
+	keys := make([]string, 0, len(kd.Index))
+	for k := range kd.Index {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// AddIndexBySizes records keydir metadata without reading the value (e.g. hint recovery).
+func (kd *KeyDir) AddIndexBySizes(fid int, off int64, key []byte, keySize, valueSize int, ts uint64) {
+	dp := &DataPosition{
+		Fid:       fid,
+		Off:       off,
+		Timestamp: ts,
+		KeySize:   keySize,
+		ValueSize: valueSize,
+	}
+	kd.Add(string(key), dp)
+}
+
+func newDataPosition(fid int, off int64, key, value []byte, ts uint64) *DataPosition {
 	dp := &DataPosition{}
 	dp.Fid = fid
 	dp.Off = off
+	dp.Timestamp = ts
 	dp.KeySize = len(key)
 	dp.ValueSize = len(value)
 	return dp
