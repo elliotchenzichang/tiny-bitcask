@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -364,7 +363,7 @@ func DataFilePath(dir string, fid int) string {
 }
 
 func getFids(dir string) (fids []int, err error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
