@@ -2,13 +2,60 @@
 
 [tiny-bitcask](https://github.com/elliotchenzichang/tiny-bitcask) is a small [Bitcask](https://riak.com/assets/bitcask-intro.pdf)-style key/value store in Go: one active append-only data file per directory, an in-memory **keydir** (hash map) pointing at the latest record per key, and optional **merge** to drop stale records and reclaim space.
 
-This repo is an educational reference and a playground for experiments; `master` carries ongoing work. For a smaller, teaching-oriented snapshot, use the **`demo`** branch:
+## Using the database
+
+Add this module to your `go.mod`. 
+```
+go get github.com/elliotchenzichang/tiny-bitcask@latest
+```
+From the repository root you can run the bundled example:
 
 ```shell
-git clone git@github.com:elliotchenzichang/tiny-bitcask.git
-cd tiny-bitcask
-git checkout demo
+go run ./cmd/demo
 ```
+
+Minimal program: open a store on a directory, `Set` / `Get` bytes, then `Close`.
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"tiny-bitcask"
+)
+
+func main() {
+	parent, err := os.MkdirTemp("", "tb")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(parent)
+	dir := filepath.Join(parent, "data") // must not exist yet — see NewDB / recovery
+
+	o := *tiny_bitcask.DefaultOptions
+	o.Dir = dir
+	db, err := tiny_bitcask.NewDB(&o)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	if err := db.Set([]byte("demo-key"), []byte("demo-value")); err != nil {
+		log.Fatal(err)
+	}
+	v, err := db.Get([]byte("demo-key"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(v))
+}
+```
+
+The same source lives at [`cmd/demo/main.go`](cmd/demo/main.go). Could clone this repo and give it a try.
 
 ---
 
