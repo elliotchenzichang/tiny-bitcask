@@ -6,6 +6,16 @@ import (
 	"time"
 )
 
+// VerifyRecordCRC checks the stored CRC32 against meta+payload bytes (matches Encode).
+func VerifyRecordCRC(buf []byte) bool {
+	if len(buf) < MetaSize {
+		return false
+	}
+	got := binary.LittleEndian.Uint32(buf[0:4])
+	want := crc32.ChecksumIEEE(buf[4:])
+	return got == want
+}
+
 const (
 	MetaSize   = 29
 	DeleteFlag = 1
@@ -38,6 +48,17 @@ func NewEntryWithData(key []byte, value []byte) *Entry {
 	return e
 }
 
+// NewTombstoneEntry builds a delete record: key in payload, empty value, DeleteFlag.
+func NewTombstoneEntry(key []byte) *Entry {
+	now := uint64(time.Now().Unix())
+	meta := NewMeta().
+		WithTimeStamp(now).
+		WithKeySize(uint32(len(key))).
+		WithValueSize(0).
+		WithFlag(DeleteFlag)
+	return NewEntry().WithKey(key).WithValue(nil).WithMeta(meta)
+}
+
 func (e *Entry) Encode() []byte {
 	size := e.Size()
 	buf := make([]byte, size)
@@ -46,7 +67,9 @@ func (e *Entry) Encode() []byte {
 	binary.LittleEndian.PutUint32(buf[20:24], e.Meta.KeySize)
 	binary.LittleEndian.PutUint32(buf[24:28], e.Meta.ValueSize)
 	buf[28] = e.Meta.Flag
-	if e.Meta.Flag != DeleteFlag {
+	if e.Meta.Flag == DeleteFlag {
+		copy(buf[MetaSize:MetaSize+len(e.Key)], e.Key)
+	} else {
 		copy(buf[MetaSize:MetaSize+len(e.Key)], e.Key)
 		copy(buf[MetaSize+len(e.Key):MetaSize+len(e.Key)+len(e.Value)], e.Value)
 	}
@@ -68,6 +91,7 @@ func (e *Entry) DecodeMeta(bytes []byte) {
 	e.Meta.TimeStamp = binary.LittleEndian.Uint64(bytes[12:20])
 	e.Meta.KeySize = binary.LittleEndian.Uint32(bytes[20:24])
 	e.Meta.ValueSize = binary.LittleEndian.Uint32(bytes[24:28])
+	e.Meta.Flag = bytes[28]
 }
 
 func (e *Entry) Size() int64 {
