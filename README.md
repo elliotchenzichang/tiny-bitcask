@@ -72,6 +72,67 @@ The same source lives at [`cmd/demo/main.go`](cmd/demo/main.go). Could clone thi
 
 ---
 
+## Architecture
+
+High-level layout: the **`DB`** type ties together **options**, an in-memory **keydir**, **segment files** (active + sealed), optional **hint** sidecars for recovery, and an **advisory lock**. **`entity`** defines the on-disk record layout shared by writes, reads, hints, and merge.
+
+```mermaid
+flowchart TB
+  subgraph Client["Client"]
+    App["Application / cmd/demo"]
+  end
+
+  subgraph API["Package root"]
+    DB["DB · Get / Set / Delete / Merge / recovery"]
+    Opt["Options"]
+    Lk["Advisory lock · lock_unix / lock_other"]
+  end
+
+  subgraph Idx["index/"]
+    KD["KeyDir · key → DataPosition"]
+  end
+
+  subgraph St["storage/"]
+    DF["DataFiles"]
+    Act["ActiveFile · append-only segment"]
+    Old["OldFile · sealed segments"]
+    Hnt["Hint files · read/write"]
+  end
+
+  subgraph Ent["entity/"]
+    Rec["Entry · Meta · CRC · tombstone"]
+  end
+
+  subgraph Disk["Data directory on disk"]
+    Dat["*.dat"]
+    Hin["*.hint"]
+    Lf[".tiny-bitcask.lock"]
+  end
+
+  App --> DB
+  DB --> Opt
+  DB --> KD
+  DB --> DF
+  DB --> Lk
+  Lk --> Lf
+
+  DF --> Act
+  DF --> Old
+  DF --> Hnt
+
+  Act --> Dat
+  Old --> Dat
+  Hnt --> Hin
+
+  Rec -.->|encode / decode / verify| Act
+  Rec -.->|encode / decode / verify| Old
+  Rec -.->|compact index rows| Hnt
+```
+
+**Typical paths (mental model).** **Write:** append an `Entry` to the active `.dat`, then update `KeyDir`. **Read:** `KeyDir` lookup → `ReadAt` on the segment identified by `fid`. **Open:** scan segments (or load hints) to rebuild `KeyDir`. **Merge:** scan sealed segments for live rows only, rewrite into the active file, drop old `.dat` / `.hint` pairs.
+
+---
+
 ## What is implemented
 
 - **Open / create**: `NewDB` — empty directory creates a new store; existing directory **recovers** the keydir by scanning `*.dat` files in order (or hints for sealed segments). **`Options`**: `VerifyCRC` (default on), `ReadOnly` (open existing store read-only), `ExclusiveLock` (Unix advisory `flock` on `.tiny-bitcask.lock`; shared lock when `ReadOnly`).
@@ -112,13 +173,3 @@ Some items from [bitcask-intro.pdf](https://riak.com/assets/bitcask-intro.pdf) a
 | `options.go` | `Dir`, `SegmentSize`, `VerifyCRC`, `ReadOnly`, `ExclusiveLock` |
 
 ---
-
-## Todo (paper-aligned and robustness)
-
-- [x] **Hint files**: format, write on rotation, load hint instead of full scan on open when present.
-- [x] **Recovery**: populate old-file ID list from on-disk segments so `Merge` works after restart; timestamps from full scan recovery.
-- [x] **Merge**: compare keydir `(fid, offset)` to the **start** offset of each scanned entry; test `TestDB_Merge_LiveKeyOnlyInOldSegment`.
-- [x] **Delete / tombstones**: valid meta + key for tombstone records; recovery applies tombstones; merge skips tombstone bodies.
-- [x] **CRC verification** on read (`Options.VerifyCRC`, default `true`).
-- [x] **`Sync` / `Close`**: flush and fsync active file; close FDs and lock.
-- [x] **API**: `ListKeys`, `Fold`, read-only open (`Options.ReadOnly`), Unix advisory lock (`Options.ExclusiveLock`).
